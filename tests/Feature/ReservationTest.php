@@ -105,7 +105,7 @@ class ReservationTest extends TestCase
         $arrival = '2026-12-01';
         $departure = '2026-12-05';
 
-        for ($i = 1; $i <= 2; $i++) {
+        for ($i = 1; $i <= 5; $i++) {
             Reservation::create([
                 'hotel_id' => $hotel->id,
                 'room_id' => $room->id,

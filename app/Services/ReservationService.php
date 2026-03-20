@@ -59,4 +59,19 @@ class ReservationService
 
     return Reservation::create($data);
 }
+
+    public function updateReservation($reservation, array $data)
+{
+    // Mesclar dados atuais com novos para validar disponibilidade
+    $mergedData = array_merge($reservation->toArray(), $data);
+
+    if (strtotime($mergedData['arrival_date']) >= strtotime($mergedData['departure_date'])) {
+        throw new Exception("A data de saída deve ser maior que a data de entrada.");
+    }
+
+
+    $reservation->update($data);
+    return $reservation;
+}
+
 }

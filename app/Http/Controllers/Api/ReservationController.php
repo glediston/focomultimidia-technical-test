@@ -38,19 +38,43 @@ class ReservationController extends Controller
 
   
     public function show(string $id)
-    {
-        
+{
+    $reservation = \App\Models\Reservation::find($id);
+    if (!$reservation) {
+        return response()->json(['error' => 'Reserva não encontrada.'], 404);
     }
+    return response()->json($reservation);
+}
 
-   
-    public function update(Request $request, string $id)
-    {
-        //
+    public function update(Request $request, string $id, \App\Services\ReservationService $service)
+{
+    try {
+        $reservation = \App\Models\Reservation::find($id);
+        if (!$reservation) {
+            return response()->json(['error' => 'Reserva não encontrada.'], 404);
+        }
+
+        $data = $request->all();
+        // A lógica de check-in/check-out e disponibilidade também deve valer para update
+        $updated = $service->updateReservation($reservation, $data);
+
+        return response()->json([
+            'message' => 'Reserva atualizada com sucesso!',
+            'data' => $updated
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 422);
     }
+}
 
-   
     public function destroy(string $id)
-    {
-        
+{
+    $reservation = \App\Models\Reservation::find($id);
+    if (!$reservation) {
+        return response()->json(['error' => 'Reserva não encontrada.'], 404);
     }
+    $reservation->delete();
+    return response()->json(['message' => 'Reserva removida com sucesso.'], 200);
+}
+
 }

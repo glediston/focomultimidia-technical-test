@@ -7,43 +7,47 @@ use Illuminate\Http\Request;
 
 class RoomController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+   
     public function index()
 {
     return response()->json(\App\Models\Room::all());
 }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+
     public function store(Request $request)
-    {
-        //
-    }
+{
+    $data = $request->validate([
+        'id' => 'required|string|unique:rooms,id',
+        'hotel_id' => 'required|exists:hotels,id',
+        'name' => 'required|string',
+        'inventory_count' => 'required|integer|min:0'
+    ]);
 
-    /**
-     * Display the specified resource.
-     */
+    $room = \App\Models\Room::create($data);
+    return response()->json($room, 201);
+}
+
     public function show(string $id)
-    {
-        //
-    }
+{
+    $room = \App\Models\Room::with('hotel')->find($id);
+    return $room ? response()->json($room) : response()->json(['error' => 'Quarto não encontrado.'], 404);
+}
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, string $id)
-    {
-        //
-    }
+{
+    $room = \App\Models\Room::find($id);
+    if (!$room) return response()->json(['error' => 'Quarto não encontrado.'], 404);
 
-    /**
-     * Remove the specified resource from storage.
-     */
+    $room->update($request->all());
+    return response()->json($room);
+}
+
     public function destroy(string $id)
-    {
-        //
-    }
+{
+    $room = \App\Models\Room::find($id);
+    if (!$room) return response()->json(['error' => 'Quarto não encontrado.'], 404);
+
+    $room->delete();
+    return response()->json(['message' => 'Quarto excluído.'], 200);
+}
 }
