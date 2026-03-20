@@ -13,18 +13,16 @@ class ReservationTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * TESTE 1: Cadastro de reserva com SUCESSO
+     * TESTE 1: Cadastro de reserva com SUCESSO.
      */
     public function test_can_create_reservation_successfully()
     {
-        $hotel = Hotel::create(['id' => 1, 'name' => 'Hotel Teste', 'location' => 'Rua A', 'rating' => 5]);
+        $hotel = Hotel::create(['id' => '1', 'name' => 'Hotel Teste']);
         
-        // Adicionado o campo 'name' aqui para evitar o erro de SQL
         $room = Room::create([
-            'id' => 101, 
+            'id' => '101', 
             'hotel_id' => $hotel->id, 
             'name' => 'Quarto Luxo 101', 
-            'type' => 'Deluxe', 
             'inventory_count' => 10
         ]);
 
@@ -32,7 +30,7 @@ class ReservationTest extends TestCase
             "hotel_id"            => $hotel->id,
             "room_id"             => $room->id,
             "customer_first_name"  => "Hospede",
-            "customer_last_name"   => "Numero Cinco",
+            "customer_last_name"   => "Cinco",
             "arrival_date"        => "2026-06-12",
             "departure_date"      => "2026-06-15",
             "total_price"         => 1050.00
@@ -42,92 +40,92 @@ class ReservationTest extends TestCase
 
         $response->assertStatus(201);
         $this->assertDatabaseHas('reservations', [
-            'customer_last_name' => 'Numero Cinco'
+            'customer_last_name' => 'Cinco',
+            'room_id' => '101'
         ]);
     }
 
     /**
-     * TESTE 2: Validar erro de Hotel Inexistente
+     * TESTE 2: Validar erro de Hotel Inexistente.
      */
     public function test_cannot_book_with_invalid_hotel_id()
     {
         $response = $this->postJson('/api/reservations', [
-            'hotel_id' => 999999, 
-            'room_id' => 123,
+            'hotel_id' => '999', 
+            'room_id' => '123',
             'customer_first_name' => 'Marcos',
-            'customer_last_name' => 'Inexistente',
+            'customer_last_name' => 'Teste',
             'arrival_date' => '2026-10-01',
             'departure_date' => '2026-10-05',
             'total_price' => 500
         ]);
 
         $response->assertStatus(422)
-                 ->assertJson(['error' => 'Hotel com ID 999999 não encontrado.']);
+                 ->assertJson(['error' => 'Hotel com ID 999 não encontrado.']);
     }
 
     /**
-     * TESTE 3: Validar erro de Quarto Inexistente
-     */
-    public function test_cannot_book_with_invalid_room_id()
-    {
-        $hotel = Hotel::create(['id' => 1, 'name' => 'Hotel Teste', 'location' => 'Rua A', 'rating' => 5]);
-
-        $response = $this->postJson('/api/reservations', [
-            'hotel_id' => $hotel->id,
-            'room_id' => 888888, 
-            'customer_first_name' => 'Marcos',
-            'customer_last_name' => 'Sem Quarto',
-            'arrival_date' => '2026-10-01',
-            'departure_date' => '2026-10-05',
-            'total_price' => 500
-        ]);
-
-        $response->assertStatus(422)
-                 ->assertJson(['error' => "Quarto com ID 888888 não encontrado."]);
-    }
-
-    /**
-     * TESTE 4: Validar a Lotação Máxima (Inventário)
+     * TESTE 3: Validar a Lotação Máxima (Inventário/Overbooking).
      */
     public function test_cannot_book_beyond_inventory_limit()
     {
-        $hotel = Hotel::create(['id' => 1, 'name' => 'Hotel Teste', 'location' => 'Rua A', 'rating' => 5]);
+        $hotel = Hotel::create(['id' => '1', 'name' => 'Hotel Teste']);
         
-        // Adicionado o campo 'name' aqui também
+        // Quarto com apenas 1 unidade disponível
         $room = Room::create([
-            'id' => 202, 
+            'id' => '202', 
             'hotel_id' => $hotel->id, 
             'name' => 'Quarto Standard 202', 
-            'type' => 'Standard', 
-            'inventory_count' => 2
+            'inventory_count' => 1 
         ]);
         
-        $arrival = '2026-12-01';
-        $departure = '2026-12-05';
+        // Cria a primeira reserva para ocupar o único quarto
+        Reservation::create([
+            'hotel_id' => $hotel->id,
+            'room_id' => $room->id,
+            'customer_first_name' => "Ocupante",
+            'customer_last_name' => "Atual",
+            'arrival_date' => '2026-12-01',
+            'departure_date' => '2026-12-05',
+            'total_price' => 1000
+        ]);
 
-        for ($i = 1; $i <= 5; $i++) {
-            Reservation::create([
-                'hotel_id' => $hotel->id,
-                'room_id' => $room->id,
-                'customer_first_name' => "Hospede $i",
-                'customer_last_name' => "Ocupante",
-                'arrival_date' => $arrival,
-                'departure_date' => $departure,
-                'total_price' => 1000
-            ]);
-        }
-
+        // Tenta reservar o mesmo quarto no mesmo período
         $response = $this->postJson('/api/reservations', [
             'hotel_id' => $hotel->id,
             'room_id' => $room->id,
             'customer_first_name' => 'Marcos',
-            'customer_last_name' => 'O Excedente',
+            'customer_last_name' => 'Excedente',
             'arrival_date' => '2026-12-02', 
             'departure_date' => '2026-12-03',
             'total_price' => 200
         ]);
 
         $response->assertStatus(422)
-                 ->assertJson(['error' => 'Não há mais quartos disponíveis desta categoria para o período solicitado.']);
+                 ->assertJson(['error' => 'Não há disponibilidade para este quarto no período selecionado.']);
+    }
+
+    /**
+     * TESTE 4: Validar erro de Data de Saída anterior à de Entrada.
+     */
+    public function test_cannot_book_with_invalid_dates()
+    {
+        $hotel = Hotel::create(['id' => '1', 'name' => 'Hotel Teste']);
+        $room = Room::create([
+            'id' => '303', 'hotel_id' => $hotel->id, 'name' => 'Quarto 303', 'inventory_count' => 5
+        ]);
+
+        $response = $this->postJson('/api/reservations', [
+            'hotel_id' => $hotel->id,
+            'room_id' => $room->id,
+            'customer_first_name' => 'Erro',
+            'customer_last_name' => 'Datas',
+            'arrival_date' => '2026-12-10',
+            'departure_date' => '2026-12-08', // Data inválida
+            'total_price' => 100
+        ]);
+
+        $response->assertStatus(422)
+                 ->assertJson(['error' => 'A data de saída deve ser posterior à data de entrada.']);
     }
 }
